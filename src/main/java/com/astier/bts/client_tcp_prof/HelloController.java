@@ -7,6 +7,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextArea;
 import javafx.scene.shape.Circle;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URL;
 import java.net.UnknownHostException;
@@ -40,7 +41,7 @@ public class HelloController implements Initializable {
         deconnecter.setOnAction(event -> {
             try {
                 deconnecter();
-            } catch (InterruptedException e) {
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -74,13 +75,28 @@ public class HelloController implements Initializable {
        }
     }
 
-    private void deconnecter() throws InterruptedException {
+    private void deconnecter() throws IOException {
         //todo
+        tcp.deconnection();
+        voyant.setFill(RED);
     }
 
     private void connecter() throws UnknownHostException {
         adresse = TextFieldIP.getText();
-        
+        port = TextFieldPort.getText();
+
+        if (port.isEmpty() || adresse.isEmpty()){
+            TextAreaReponses.appendText("Erreur Connection");
+            return;
+        }
+        int portInt = Integer.parseInt(port);
+        InetAddress addr = InetAddress.getByName(adresse);
+        tcp = new TCP(addr,portInt,this);
+        tcp.connection();
+        tcp.start();
+        enRun=true;
+        voyant.setFill(GREEN);
+
     }
 
 }

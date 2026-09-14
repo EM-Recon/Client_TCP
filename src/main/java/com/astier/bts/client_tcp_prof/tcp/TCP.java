@@ -8,6 +8,7 @@ package com.astier.bts.client_tcp_prof.tcp;
 
 import com.astier.bts.client_tcp_prof.HelloController;
 import javafx.application.Platform;
+import javafx.scene.control.TextArea;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -61,30 +62,37 @@ public class TCP extends Thread {
        }
     }
 
-    public void deconnection() throws InterruptedException {
+    public void deconnection() throws IOException {
         //todo
+        in.close();
+        socket.close();
+        out.close();
     }
 
     public void requette(String laRequette) throws IOException {
         out.println(laRequette);  // envoi reseau
         System.out.println("la requette " + laRequette);
+
+
     }
 
     public void run() {
         while (marche) {
+            String message = null;
+            char[] chars = new char [65535];
+            int oclus = 0;
             try {
-                String messageServeur = in.readLine();
-                if (messageServeur == null){
-                    marche = false;
-                    break;
+                oclus = in.read(chars);
+                if (oclus > 0 ){
+                    message = new String(chars,0, oclus);
+                    updateMessage(message);
                 }
-
-                System.out.println(messageServeur);
-                updateMessage(messageServeur);
-
-            } catch (IOException e){
+            } catch (Exception e){
+                System.out.println("test");
                 marche = false;
             }
+
+
         }
     }
 
