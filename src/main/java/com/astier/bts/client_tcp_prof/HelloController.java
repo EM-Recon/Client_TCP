@@ -27,12 +27,49 @@ public class HelloController implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         voyant.setFill(RED);
-        //todo
+        button.setOnAction(event -> {
+            try {
+                envoyer();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        deconnecter.setOnAction(event -> {
+            try {
+                deconnecter();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        connecter.setOnAction(event -> {
+            try {
+                connecter();
+            } catch (UnknownHostException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
 
     private void envoyer() throws InterruptedException {
-       //todo
+       String requette = TextFieldRequette.getText();
+       TextAreaReponses.clear();
+       if (requette.isEmpty()){
+           TextAreaReponses.appendText("Requete vide");
+           return;
+       }
+       if (!enRun || tcp == null){
+           TextAreaReponses.appendText("Non connecté");
+           return;
+       }
+       try {
+           tcp.requette(requette);
+           TextAreaReponses.clear();
+       } catch (Exception e) {
+           TextAreaReponses.appendText("Erreur");
+       }
     }
 
     private void deconnecter() throws InterruptedException {
