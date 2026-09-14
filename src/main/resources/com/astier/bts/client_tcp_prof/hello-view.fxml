@@ -1,16 +1,66 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.effect.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.*?>
+<?import javafx.scene.text.*?>
 
-<?import javafx.scene.control.Button?>
-<VBox alignment="CENTER" spacing="20.0" xmlns:fx="http://javafx.com/fxml"
-      fx:controller="com.astier.bts.client_tcp_prof.HelloController">
-    <padding>
-        <Insets bottom="20.0" left="20.0" right="20.0" top="20.0"/>
-    </padding>
-
-    <Label fx:id="welcomeText"/>
-    <Button text="Hello!" onAction="#onHelloButtonClick"/>
-</VBox>
+<AnchorPane id="AnchorPane" prefHeight="480.0" prefWidth="580.0" xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.astier.bts.client_tcp_prof.HelloController">
+    <children>
+        <Button fx:id="button" defaultButton="true" layoutX="488.0" layoutY="320.0"  text="Envoyer" AnchorPane.leftAnchor="510.0">
+            <font>
+                <Font size="11.0" />
+            </font>
+        </Button>
+        <Label fx:id="labelServeur" alignment="TOP_RIGHT" contentDisplay="RIGHT" layoutX="6.0" layoutY="396.0" minHeight="16" minWidth="58.0" prefHeight="18.0" prefWidth="87.0" text="\@ serveur:" textAlignment="RIGHT" AnchorPane.leftAnchor="6.0">
+            <font>
+                <Font size="11.0" />
+            </font>
+        </Label>
+        <Label fx:id="labelPort" alignment="TOP_RIGHT" contentDisplay="RIGHT" layoutX="281.0" layoutY="396.0" minHeight="16" minWidth="32.0" prefHeight="18.0" prefWidth="80.0" text="Port :" textAlignment="RIGHT" AnchorPane.leftAnchor="281.0">
+            <font>
+                <Font size="11.0" />
+            </font>
+        </Label>
+        <TextField fx:id="TextFieldIP" alignment="CENTER" layoutX="103.0" layoutY="392.0" AnchorPane.leftAnchor="103.0">
+            <font>
+                <Font size="11.0" />
+            </font>
+        </TextField>
+        <TextField fx:id="TextFieldPort" alignment="CENTER" layoutX="368.0" layoutY="392.0" prefHeight="25.0" prefWidth="129.0" AnchorPane.leftAnchor="370.0">
+            <font>
+                <Font size="11.0" />
+            </font>
+        </TextField>
+        <TextField fx:id="TextFieldRequette" layoutX="103.0" layoutY="320.0" prefHeight="25.0" prefWidth="398.0">
+            <font>
+                <Font size="11.0" />
+            </font>
+        </TextField>
+        <Label fx:id="labelRequette" alignment="TOP_RIGHT" contentDisplay="RIGHT" layoutX="14.0" layoutY="324.0" minHeight="16" minWidth="58.0" prefHeight="18.0" prefWidth="80.0" text="Requette:" textAlignment="RIGHT" AnchorPane.leftAnchor="14.0">
+            <font>
+                <Font size="11.0" />
+            </font>
+        </Label>
+        <TextArea fx:id="TextAreaReponses" editable="false" layoutX="14.0" layoutY="14.0" prefHeight="278.0" prefWidth="558.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="10.0">
+            <effect>
+                <InnerShadow color="#000000cd" height="128.0" radius="63.5" width="128.0" />
+            </effect>
+            <font>
+                <Font name="Consolas Bold" size="11.0" />
+            </font>
+        </TextArea>
+        <Button fx:id="connecter" layoutX="510.0" layoutY="434.0"  text="On" textAlignment="CENTER" AnchorPane.rightAnchor="10.0">
+            <font>
+                <Font size="11.0" />
+            </font>
+        </Button>
+        <Button fx:id="deconnecter" cancelButton="true" layoutX="502.0" layoutY="434.0" text="Off" textAlignment="CENTER" AnchorPane.rightAnchor="45.0">
+            <font>
+                <Font size="11.0" />
+            </font>
+        </Button>
+        <Circle fx:id="voyant" fill="RED" layoutX="535.0" layoutY="405.0" radius="17.0" stroke="BLACK" strokeType="INSIDE" AnchorPane.rightAnchor="28.0" />
+    </children>
+</AnchorPane>
