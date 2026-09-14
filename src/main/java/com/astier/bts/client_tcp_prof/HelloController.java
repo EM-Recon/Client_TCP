@@ -77,7 +77,47 @@ public class HelloController implements Initializable {
     }
 
     private void connecter() throws UnknownHostException {
-        //todo
+   
+    adresse = TextFieldIP.getText();
+    port = TextFieldPort.getText();
+    
+   
+    if (adresse.isEmpty() || port.isEmpty()) {
+        TextAreaReponses.appendText("Erreur: Veuillez remplir l'IP et le port!\n");
+        return;
     }
+    
+    
+    try {
+        int portNum = Integer.parseInt(port);
+        
+        
+        tcp = new TCP(InetAddress.getByName(adresse), portNum, this);
+        
+        
+        tcp.start();
+        
+       
+        enRun = true;
+        
+       
+        voyant.setFill(GREEN);
+        
+       
+        TextAreaReponses.appendText("Connexion établie avec " + adresse + ":" + port + "\n");
+        
+        
+        connecter.setDisable(true);
+        deconnecter.setDisable(false);
+        button.setDisable(false);
+        
+    } catch (NumberFormatException e) {
+        TextAreaReponses.appendText("Erreur: Le port doit être un nombre!\n");
+    } catch (UnknownHostException e) {
+        TextAreaReponses.appendText(" Erreur: Adresse IP invalide!\n");
+    } catch (Exception e) {
+        TextAreaReponses.appendText("Erreur de connexion: " + e.getMessage() + "\n");
+    }
+}
 
 }
