@@ -48,7 +48,17 @@ public class TCP extends Thread {
 
 
     public void connection() {
-       //todo
+       try {
+           socket = new Socket(serveur,port);
+           out = new PrintStream(socket.getOutputStream());
+           in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+           connection = true;
+           marche = true;
+           System.out.println("Connextion ok");
+
+       } catch (IOException e) {
+           System.out.println("Erreur de connection");
+       }
     }
 
     public void deconnection() throws InterruptedException {
@@ -62,7 +72,19 @@ public class TCP extends Thread {
 
     public void run() {
         while (marche) {
-            //todo
+            try {
+                String messageServeur = in.readLine();
+                if (messageServeur == null){
+                    marche = false;
+                    break;
+                }
+
+                System.out.println(messageServeur);
+                updateMessage(messageServeur);
+
+            } catch (IOException e){
+                marche = false;
+            }
         }
     }
 
