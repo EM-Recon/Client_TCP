@@ -50,7 +50,7 @@ public class TCP extends Thread {
     public void connection() {
        try {
            socket = new Socket(serveur,port);
-           out = new PrintStream(socket.getOutputStream());
+           out = new PrintStream(socket.getOutputStream(), true);
            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
            connection = true;
            marche = true;
