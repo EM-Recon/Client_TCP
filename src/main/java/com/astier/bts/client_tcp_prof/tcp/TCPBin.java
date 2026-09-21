@@ -5,123 +5,105 @@ import com.astier.bts.client_tcp_prof.aes.Aes_cbc;
 import javafx.application.Platform;
 
 import java.io.DataInputStream;
-import java.io.OutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Classe TCP Binaire et Chiffrée avec AES-CBC
+ * Client TCP binaire sécurisé par AES-CBC
+ * @author Michael
  */
-public class TCP extends Thread {
-    int port;
-    InetAddress serveur;
-    Socket socket;
-    boolean marche = false;
-    boolean connection = false;
+public class TcpBinaireAes extends Thread {
+    private InetAddress adrServeur;
+    private int portEcoute;
+    private Socket chaussette;
+    private boolean actif = false;
+    private boolean estConnecte = false;
 
-    // Flux binaires au lieu de textuels
-    private OutputStream out;
-    private DataInputStream in;
+    private DataOutputStream fluxSortant;
+    private DataInputStream fluxEntrant;
 
-    HelloController fxmlCont;
-    private Aes_cbc aes;
+    private HelloController controleur;
+    private Aes_cbc chiffreur;
 
-    public TCP() {
+    public TcpBinaireAes() {
     }
 
-    /**
-     * Constructeur prenant en compte la clé AES et l'IV pour le chiffrement.
-     */
-    public TCP(InetAddress serveur, int port, HelloController fxmlCont, byte[] key, byte[] iv) {
-        this.port = port;
-        this.serveur = serveur;
-        this.fxmlCont = fxmlCont;
-        this.aes = new Aes_cbc(key, iv);
-        System.out.println("@ serveur: " + serveur + " port: " + port + " [AES-CBC activé]");
+    public TcpBinaireAes(InetAddress adrServeur, int portEcoute, HelloController controleur, byte[] clef, byte[] vectorInit) {
+        this.adrServeur = adrServeur;
+        this.portEcoute = portEcoute;
+        this.controleur = controleur;
+        this.chiffreur = new Aes_cbc(clef, vectorInit);
+        System.out.println("@ hôte: " + adrServeur + " port: " + portEcoute + " [AES activé]");
     }
 
     public void connection() {
         try {
-            socket = new Socket(serveur, port);
-            // Récupération des flux binaires bruts
-            out = socket.getOutputStream();
-            in = new DataInputStream(socket.getInputStream());
-            connection = true;
-            marche = true;
-            System.out.println("Connexion binaire sécurisée OK");
-
-        } catch (IOException e) {
-            System.out.println("Erreur de connexion");
+            chaussette = new Socket(adrServeur, portEcoute);
+            fluxSortant = new DataOutputStream(chaussette.getOutputStream());
+            fluxEntrant = new DataInputStream(chaussette.getInputStream());
+            estConnecte = true;
+            actif = true;
+            System.out.println("Connexion binaire établie");
+        } catch (IOException err) {
+            System.out.println("Échec de connexion : " + err.getMessage());
         }
     }
 
     public void deconnection() throws IOException {
-        marche = false;
-        if (socket != null && !socket.isClosed()) {
-            socket.close();
+        actif = false;
+        if (chaussette != null && !chaussette.isClosed()) {
+            chaussette.close();
         }
     }
 
-    /**
-     * Chiffre la requête textuelle en octets puis l'envoie sur le réseau.
-     * Envoie la taille du message (4 octets) suivie des données chiffrées.
-     */
-    public void requette(String laRequette) throws IOException {
-        if (out != null && aes != null) {
-            // 1. Conversion de la chaîne en octets (UTF-8)
-            byte[] plainTextBytes = laRequette.getBytes(StandardCharsets.UTF_8);
+    public void requette(String commandeTxt) throws IOException {
+        if (fluxSortant != null && chiffreur != null) {
+            // Conversion texte vers octets
+            byte[] donneesClaires = commandeTxt.getBytes(StandardCharsets.UTF_8);
 
-            // 2. Chiffrement AES-CBC
-            byte[] encryptedBytes = aes.cryptage(plainTextBytes);
+            // Chiffrement
+            byte[] donneesChiffrees = chiffreur.cryptage(donneesClaires);
 
-            if (encryptedBytes != null) {
-                // 3. Envoi de la taille du bloc chiffré (évite les problèmes de découpage TCP)
-                out.write(ByteBuffer.allocate(4).putInt(encryptedBytes.length).array());
-
-                // 4. Envoi des données chiffrées
-                out.write(encryptedBytes);
-                out.flush();
-
-                System.out.println("Requête chiffrée envoyée (" + encryptedBytes.length + " octets)");
+            if (donneesChiffrees != null) {
+                // Envoi de la taille du paquet puis du paquet chiffré
+                fluxSortant.writeInt(donneesChiffrees.length);
+                fluxSortant.write(donneesChiffrees);
+                fluxSortant.flush();
+                System.out.println("Requête envoyée (" + donneesChiffrees.length + " octets chiffrés)");
             }
         }
     }
 
-    /**
-     * Boucle de lecture binaire : lit la taille attendue puis déchiffre les octets reçus.
-     */
     @Override
     public void run() {
-        while (marche) {
+        while (actif) {
             try {
-                // 1. Lecture de la taille des données chiffrées arrivantes (4 octets)
-                int length = in.readInt();
+                // Lecture de la taille du bloc chiffré à recevoir
+                int taillePaquet = fluxEntrant.readInt();
 
-                if (length > 0) {
-                    // 2. Allocation du tampon exact et lecture complète du bloc
-                    byte[] encryptedData = new byte[length];
-                    in.readFully(encryptedData);
+                if (taillePaquet > 0) {
+                    byte[] tamponCrypt = new byte[taillePaquet];
+                    fluxEntrant.readFully(tamponCrypt);
 
-                    // 3. Déchiffrement AES-CBC
-                    byte[] decryptedData = aes.decryptage(encryptedData);
+                    // Déchiffrement du bloc
+                    byte[] tamponClair = chiffreur.decryptage(tamponCrypt);
 
-                    if (decryptedData != null) {
-                        // 4. Reconstitution de la chaîne de caractères
-                        String messageClair = new String(decryptedData, StandardCharsets.UTF_8);
-                        updateMessage(messageClair);
+                    if (tamponClair != null) {
+                        String reponseServeur = new String(tamponClair, StandardCharsets.UTF_8);
+                        updateMessage(reponseServeur);
                     }
                 }
-            } catch (IOException e) {
-                // Déconnexion ou fin de flux
-                marche = false;
-                System.out.println("Déconnexion du serveur ou erreur de lecture.");
+            } catch (IOException err) {
+                actif = false;
+                System.out.println("Flux binaire interrompu.");
             }
         }
     }
 
-    protected void updateMessage(String message) {
-        Platform.runLater(() -> fxmlCont.TextAreaReponses.appendText("   MESSAGE SERVEUR > \n      " + message + "\n"));
+    protected void updateMessage(String msgRecu) {
+        Platform.runLater(() -> controleur.TextAreaReponses.appendText("    SERVEUR SECURE > \n      " + msgRecu + "\n"));
     }
 }
