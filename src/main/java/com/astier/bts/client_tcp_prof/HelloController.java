@@ -1,6 +1,6 @@
 package com.astier.bts.client_tcp_prof;
 
-import com.astier.bts.client_tcp_prof.tcp.TcpBinaireAes;
+import com.astier.bts.client_tcp_prof.tcp.TCP;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
@@ -23,7 +23,7 @@ public class HelloController implements Initializable {
     public TextField TextFieldRequette;
     public Circle voyant;
     public TextArea TextAreaReponses;
-    static public TcpBinaireAes tcp;
+    static public TCP tcp;
     static boolean enRun = false;
     String adresse,port;
 
@@ -57,25 +57,25 @@ public class HelloController implements Initializable {
 
 
     private void envoyer() throws InterruptedException {
-       String requette = TextFieldRequette.getText();
-       TextAreaReponses.clear();
-       if (requette.isEmpty()){
-           TextAreaReponses.appendText("Requete vide");
-           return;
-       }
-       if (requette.equalsIgnoreCase("exit")){
-           deconnecter.fire();
-       }
-       if (!enRun || tcp == null){
-           TextAreaReponses.appendText("Non connecté");
-           return;
-       }
-       try {
-           tcp.requette(requette);
-           TextAreaReponses.clear();
-       } catch (Exception e) {
-           TextAreaReponses.appendText("Erreur");
-       }
+        String requette = TextFieldRequette.getText();
+        TextAreaReponses.clear();
+        if (requette.isEmpty()){
+            TextAreaReponses.appendText("Requete vide");
+            return;
+        }
+        if (requette.equalsIgnoreCase("exit")){
+            deconnecter.fire();
+        }
+        if (!enRun || tcp == null){
+            TextAreaReponses.appendText("Non connecté");
+            return;
+        }
+        try {
+            tcp.requette(requette);
+            TextAreaReponses.clear();
+        } catch (Exception e) {
+            TextAreaReponses.appendText("Erreur");
+        }
     }
 
     private void deconnecter() throws IOException {
@@ -102,7 +102,7 @@ public class HelloController implements Initializable {
         }
         int portInt = Integer.parseInt(port);
         InetAddress addr = InetAddress.getByName(adresse);
-        tcp = new TcpBinaireAes(addr,portInt,this);
+        tcp = new TCP(addr,portInt,this);
         tcp.connection();
         tcp.start();
         enRun=true;

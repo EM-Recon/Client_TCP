@@ -49,17 +49,17 @@ public class TCP extends Thread {
 
 
     public void connection() {
-       try {
-           socket = new Socket(serveur,port);
-           out = new PrintStream(socket.getOutputStream(), true);
-           in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-           connection = true;
-           marche = true;
-           System.out.println("Connextion ok");
+        try {
+            socket = new Socket(serveur,port);
+            out = new PrintStream(socket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            connection = true;
+            marche = true;
+            System.out.println("Connextion ok");
 
-       } catch (IOException e) {
-           System.out.println("Erreur de connection");
-       }
+        } catch (IOException e) {
+            System.out.println("Erreur de connection");
+        }
     }
 
     public void deconnection() throws IOException {
