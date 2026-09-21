@@ -63,7 +63,6 @@ public class TCP extends Thread {
     }
 
     public void deconnection() throws IOException {
-        //todo
         in.close();
         socket.close();
         out.close();
