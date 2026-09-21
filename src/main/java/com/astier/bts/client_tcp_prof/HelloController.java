@@ -1,6 +1,6 @@
 package com.astier.bts.client_tcp_prof;
 
-import com.astier.bts.client_tcp_prof.tcp.TCP;
+import com.astier.bts.client_tcp_prof.tcp.TcpBinaireAes;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
@@ -23,7 +23,7 @@ public class HelloController implements Initializable {
     public TextField TextFieldRequette;
     public Circle voyant;
     public TextArea TextAreaReponses;
-    static public TCP tcp;
+    static public TcpBinaireAes tcp;
     static boolean enRun = false;
     String adresse,port;
 
@@ -102,7 +102,7 @@ public class HelloController implements Initializable {
         }
         int portInt = Integer.parseInt(port);
         InetAddress addr = InetAddress.getByName(adresse);
-        tcp = new TCP(addr,portInt,this);
+        tcp = new TcpBinaireAes(addr,portInt,this);
         tcp.connection();
         tcp.start();
         enRun=true;
