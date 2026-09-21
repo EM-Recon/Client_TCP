@@ -63,6 +63,9 @@ public class HelloController implements Initializable {
            TextAreaReponses.appendText("Requete vide");
            return;
        }
+       if (requette.equalsIgnoreCase("exit")){
+           deconnecter.fire();
+       }
        if (!enRun || tcp == null){
            TextAreaReponses.appendText("Non connecté");
            return;
@@ -76,9 +79,17 @@ public class HelloController implements Initializable {
     }
 
     private void deconnecter() throws IOException {
-        //todo
-        tcp.deconnection();
-        voyant.setFill(RED);
+        try {
+            if (tcp != null && enRun){
+                tcp.deconnection();
+                enRun = false;
+                voyant.setFill(RED);
+                TextAreaReponses.appendText("Deco");
+
+            }
+        }catch (Exception e){
+            TextAreaReponses.appendText("Ta gueule ta une erreur");
+        }
     }
 
     private void connecter() throws UnknownHostException {

@@ -1,0 +1,4 @@
+{
+  "motDePasse":"mot de passe aes_128",
+  "iv":"ici vecteur d'initialisation"
+}

@@ -63,9 +63,10 @@ public class TCP extends Thread {
     }
 
     public void deconnection() throws IOException {
-        in.close();
-        socket.close();
-        out.close();
+        marche = false;
+        if (socket != null && !socket.isClosed()){
+            socket.close();
+        }
     }
 
     public void requette(String laRequette) throws IOException {
