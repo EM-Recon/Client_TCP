@@ -1,6 +1,7 @@
 package com.astier.bts.client_tcp_prof.tcp;
 
 import com.astier.bts.client_tcp_prof.HelloController;
+import com.astier.bts.client_tcp_prof.aes.Aes_cbc;
 import javafx.application.Platform;
 
 import java.io.DataOutputStream;
@@ -8,93 +9,104 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
-/**
- * @author Michael
- */
 public class TCPBin extends Thread {
-    int port;
-    InetAddress serveur;
-    Socket socket;
-    boolean marche = false;
-    boolean connection = false;
+    private final int port;
+    private final InetAddress serveur;
+    private Socket socket;
+    private volatile boolean marche = false;
 
-    DataOutputStream out;
-    InputStream in;
+    private DataOutputStream out;
+    private InputStream in;
 
-    HelloController fxmlCont;
+    private final HelloController fxmlCont;
+    private final Aes_cbc aes;
 
-    public TCPBin() {
-    }
-
-    public TCPBin(InetAddress serveur, int port, HelloController fxmlCont) {
+    public TCPBin(InetAddress serveur, int port, HelloController fxmlCont, Aes_cbc aes) {
         this.port = port;
         this.serveur = serveur;
         this.fxmlCont = fxmlCont;
-        System.out.println("@ serveur: " + serveur + " port: " + port);
+        this.aes = aes;
+        setDaemon(true);
     }
 
-    public void connection() {
+    public boolean connection() {
         try {
             socket = new Socket(serveur, port);
             out = new DataOutputStream(socket.getOutputStream());
             in = socket.getInputStream();
-            connection = true;
             marche = true;
             System.out.println("Connexion ok");
-
+            return true;
         } catch (IOException e) {
             System.out.println("Erreur de connexion");
+            return false;
         }
     }
 
     public void deconnection() throws IOException {
         marche = false;
-        if (socket != null && !socket.isClosed()){
+        if (socket != null && !socket.isClosed()) {
             socket.close();
         }
     }
 
+    /** Chiffre le texte en AES-CBC puis l'envoie. */
+    public void requette(String message) throws IOException {
+        byte[] chiffre = aes.cryptage(message.getBytes(StandardCharsets.UTF_8));
+        if (chiffre == null) {
+            throw new IOException("Échec du chiffrement");
+        }
+        requette(chiffre);
+    }
 
-    public void requette(byte[] laRequette) throws IOException {
+    /** Envoi brut (déjà chiffré). */
+    public void requette(byte[] data) throws IOException {
         if (out != null) {
-            out.write(laRequette);
+            out.write(data);
             out.flush();
-            System.out.println("Requête binaire envoyée (" + laRequette.length + " octets)");
+            System.out.println("Requête binaire envoyée (" + data.length + " octets)");
         }
     }
 
     @Override
     public void run() {
+        byte[] buffer = new byte[65535];
         while (marche) {
-            byte[] buffer = new byte[65535];
-            int oclus = 0;
             try {
-                oclus = in.read(buffer);
-                if (oclus == -1) {
+                int lus = in.read(buffer);
+                if (lus == -1) {
                     marche = false;
                     break;
                 }
-                if (oclus > 0 ) {
-                    byte[] dataRecue = new byte[oclus];
-                    System.arraycopy(buffer, 0, dataRecue, 0, oclus);
-                    updateMessage(dataRecue);
+                if (lus > 0) {
+                    updateMessage(Arrays.copyOf(buffer, lus));
                 }
-            } catch (Exception e){
-                System.out.println("Déconnexion ou erreur de lecture");
+            } catch (Exception e) {
+                if (marche) System.out.println("Déconnexion ou erreur de lecture");
                 marche = false;
             }
         }
+        Platform.runLater(fxmlCont::serveurDeconnecte);
     }
 
     protected void updateMessage(byte[] data) {
-        StringBuilder hexString = new StringBuilder();
+        StringBuilder hex = new StringBuilder();
         for (byte b : data) {
-            hexString.append(String.format("%02X ", b));
+            hex.append(String.format("%02X ", b));
         }
 
-        Platform.runLater(() ->
-                fxmlCont.TextAreaReponses.appendText("    MESSAGE SERVEUR (HEX) >  \n      " + hexString.toString() + "\n")
-        );
+        String affichage;
+        byte[] clair = (data.length % 16 == 0) ? aes.decryptage(data) : null;
+        if (clair != null) {
+            affichage = "MESSAGE SERVEUR (déchiffré) > " + new String(clair, StandardCharsets.UTF_8)
+                    + "\n   (HEX reçu) > " + hex;
+        } else {
+            affichage = "MESSAGE SERVEUR (non déchiffrable) > " + hex;
+        }
+
+        Platform.runLater(() -> fxmlCont.TextAreaReponses.appendText(affichage + "\n"));
     }
 }
