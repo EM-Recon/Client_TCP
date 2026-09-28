@@ -1,37 +1,35 @@
-
 //--enable-native-access=javafx.graphics
 package com.astier.bts.client_tcp_prof;
 
 import javafx.application.Application;
-import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
-
 import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
-        Parent root = FXMLLoader.load(getClass().getResource("hello-view.fxml"));
-        stage.setOnCloseRequest((event -> {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("hello-view.fxml"));
+        Parent root = loader.load();
+        HelloController controller = loader.getController();
+
+        stage.setOnCloseRequest(event -> {
             try {
-                if (HelloController.enRun){
-                    HelloController.tcp.deconnection();
-                }
-                System.exit(0);
+                controller.fermerConnexion();
             } catch (Exception ex) {
+                // on quitte quand même
+            } finally {
+                System.exit(0);
             }
-        }));
+        });
+
         stage.setTitle("TCP-Client  MM");
         stage.getIcons().add(new Image("/icone/index.jpg"));
-        Scene scene = new Scene(root);
-        stage.setScene(scene);
+        stage.setScene(new Scene(root));
         stage.show();
     }
 

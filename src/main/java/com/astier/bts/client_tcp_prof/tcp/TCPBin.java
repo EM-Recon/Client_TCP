@@ -4,6 +4,7 @@ import com.astier.bts.client_tcp_prof.HelloController;
 import com.astier.bts.client_tcp_prof.aes.Aes_cbc;
 import javafx.application.Platform;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -76,14 +77,24 @@ public class TCPBin extends Thread {
         byte[] buffer = new byte[65535];
         while (marche) {
             try {
-                int lus = in.read(buffer);
+                ByteArrayOutputStream recu = new ByteArrayOutputStream();
+
+                int lus = in.read(buffer); // bloque jusqu'à la première donnée
                 if (lus == -1) {
                     marche = false;
                     break;
                 }
-                if (lus > 0) {
-                    updateMessage(Arrays.copyOf(buffer, lus));
+                recu.write(buffer, 0, lus);
+
+                // courte fenêtre pour récupérer la suite des données
+                Thread.sleep(50);
+                while (in.available() > 0) {
+                    lus = in.read(buffer, 0, Math.min(buffer.length, in.available()));
+                    if (lus == -1) break;
+                    recu.write(buffer, 0, lus);
                 }
+
+                updateMessage(recu.toByteArray());
             } catch (Exception e) {
                 if (marche) System.out.println("Déconnexion ou erreur de lecture");
                 marche = false;
@@ -92,21 +103,52 @@ public class TCPBin extends Thread {
         Platform.runLater(fxmlCont::serveurDeconnecte);
     }
 
+    /**
+     * Les données reçues peuvent contenir plusieurs messages chiffrés collés.
+     * On cherche la fin de chaque message : premier découpage (multiple de 16 octets)
+     * dont le bourrage est valide et dont le contenu est du texte lisible.
+     */
     protected void updateMessage(byte[] data) {
-        StringBuilder hex = new StringBuilder();
-        for (byte b : data) {
-            hex.append(String.format("%02X ", b));
+        StringBuilder sb = new StringBuilder();
+        int debut = 0;
+
+        while (debut < data.length) {
+            byte[] clair = null;
+            int fin = -1;
+
+            for (int e = debut + 16; e <= data.length; e += 16) {
+                byte[] essai = aes.decryptage(Arrays.copyOfRange(data, debut, e));
+                if (essai != null && estTexte(essai)) {
+                    clair = essai;
+                    fin = e;
+                    break;
+                }
+            }
+
+            if (clair == null) { // reste non déchiffrable : affichage en hexadécimal
+                StringBuilder hex = new StringBuilder();
+                for (int i = debut; i < data.length; i++) {
+                    hex.append(String.format("%02X ", data[i]));
+                }
+                sb.append("SERVEUR (non déchiffrable) > ").append(hex).append("\n");
+                break;
+            }
+
+            sb.append("SERVEUR > ").append(new String(clair, StandardCharsets.UTF_8)).append("\n");
+            debut = fin;
         }
 
-        String affichage;
-        byte[] clair = (data.length % 16 == 0) ? aes.decryptage(data) : null;
-        if (clair != null) {
-            affichage = "MESSAGE SERVEUR (déchiffré) > " + new String(clair, StandardCharsets.UTF_8)
-                    + "\n   (HEX reçu) > " + hex;
-        } else {
-            affichage = "MESSAGE SERVEUR (non déchiffrable) > " + hex;
-        }
+        String affichage = sb.toString();
+        Platform.runLater(() -> fxmlCont.TextAreaReponses.appendText(affichage));
+    }
 
-        Platform.runLater(() -> fxmlCont.TextAreaReponses.appendText(affichage + "\n"));
+    /** Vrai si les octets forment un texte UTF-8 lisible (pas de caractères de contrôle ni de �). */
+    private boolean estTexte(byte[] b) {
+        String s = new String(b, StandardCharsets.UTF_8);
+        for (char c : s.toCharArray()) {
+            if (c == '\uFFFD') return false;
+            if (c < 32 && c != '\n' && c != '\r' && c != '\t') return false;
+        }
+        return true;
     }
 }
