@@ -4,7 +4,7 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 
 public class MulticastDiff {
-    private final String MON_INTERFACE = "";
+    private final String MON_INTERFACE = "ethernet_32768";
     private InetAddress ip;
     private byte [] data = "Tu es qui?".getBytes(StandardCharsets.UTF_8);
     private int port = 5555;
@@ -33,7 +33,7 @@ public class MulticastDiff {
                 throw new RuntimeException(e);
             }
             System.out.println("Reponse : " + new String(bufferReponse));
-        });
+        }).start();
 
     }
 }
