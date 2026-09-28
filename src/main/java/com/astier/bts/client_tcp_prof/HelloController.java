@@ -62,7 +62,7 @@ public class HelloController implements Initializable {
         }
     }
 
-    /** Extrait la valeur texte d'un champ du JSON ("cle" : "valeur"). */
+
     private String lireChamp(String json, String cle) {
         Matcher m = Pattern.compile("\"" + cle + "\"\\s*:\\s*\"([^\"]*)\"").matcher(json);
         if (!m.find()) {
@@ -103,7 +103,7 @@ public class HelloController implements Initializable {
         serveurDeconnecte();
     }
 
-    /** Appelée aussi par TCPBin quand le serveur ferme la connexion. */
+
     public void serveurDeconnecte() {
         if (enRun) {
             enRun = false;
@@ -112,7 +112,7 @@ public class HelloController implements Initializable {
         }
     }
 
-    /** Appelée à la fermeture de la fenêtre. */
+
     public void fermerConnexion() throws IOException {
         if (tcp != null && enRun) {
             tcp.deconnection();

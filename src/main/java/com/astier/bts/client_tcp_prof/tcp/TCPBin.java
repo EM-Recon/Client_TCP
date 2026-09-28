@@ -103,11 +103,7 @@ public class TCPBin extends Thread {
         Platform.runLater(fxmlCont::serveurDeconnecte);
     }
 
-    /**
-     * Les données reçues peuvent contenir plusieurs messages chiffrés collés.
-     * On cherche la fin de chaque message : premier découpage (multiple de 16 octets)
-     * dont le bourrage est valide et dont le contenu est du texte lisible.
-     */
+
     protected void updateMessage(byte[] data) {
         StringBuilder sb = new StringBuilder();
         int debut = 0;
@@ -142,7 +138,7 @@ public class TCPBin extends Thread {
         Platform.runLater(() -> fxmlCont.TextAreaReponses.appendText(affichage));
     }
 
-    /** Vrai si les octets forment un texte UTF-8 lisible (pas de caractères de contrôle ni de �). */
+
     private boolean estTexte(byte[] b) {
         String s = new String(b, StandardCharsets.UTF_8);
         for (char c : s.toCharArray()) {
