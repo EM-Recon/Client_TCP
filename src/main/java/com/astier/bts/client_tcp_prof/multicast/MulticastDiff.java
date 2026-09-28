@@ -1,9 +1,9 @@
-package com.astier.bts.client_tcp_prof.Multicast;
+package com.astier.bts.client_tcp_prof.multicast;
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 
-public class MulticastDiffusion {
+public class MulticastDiff {
     private final String MON_INTERFACE = "";
     private InetAddress ip;
     private byte [] data = "Tu es qui?".getBytes(StandardCharsets.UTF_8);
@@ -15,7 +15,7 @@ public class MulticastDiffusion {
     private MulticastSocket ms;
     private DatagramSocket dsReponse;
 
-    public MulticastDiffusion() throws IOException {
+    public MulticastDiff() throws IOException {
         ms = new MulticastSocket();
         NetworkInterface ni = NetworkInterface.getByName(MON_INTERFACE);
         ms.setNetworkInterface(ni);
