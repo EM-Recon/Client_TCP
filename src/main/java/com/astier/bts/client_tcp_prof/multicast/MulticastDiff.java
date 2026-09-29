@@ -1,4 +1,7 @@
 package com.astier.bts.client_tcp_prof.multicast;
+import com.astier.bts.client_tcp_prof.aes.Outils;
+import com.astier.bts.client_tcp_prof.model.Connexion;
+
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +17,7 @@ public class MulticastDiff {
     private DatagramPacket dp;
     private MulticastSocket ms;
     private DatagramSocket dsReponse;
+
 
     public MulticastDiff() throws IOException {
         ms = new MulticastSocket();
@@ -32,6 +36,19 @@ public class MulticastDiff {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+
+            String reponseServeur = new String(dp.getData(),0,dp.getLength());
+            String[] reponseSplitted = reponseServeur.split(";");
+            try {
+                Connexion connexion = new Connexion(
+                        InetAddress.getByName(reponseSplitted[0]),
+                        Integer.parseInt(reponseSplitted[1]),
+                        Integer.parseInt(reponseSplitted[2])
+                );
+            } catch (UnknownHostException e){
+                System.err.println(Outils.DiagnosticException.afficheException(e));
+            }
+
             System.out.println("Reponse : " + new String(bufferReponse));
         }).start();
 
