@@ -10,4 +10,6 @@ module com.astier.bts.client_tcp_prof {
     opens com.astier.bts.client_tcp_prof.aes to com.google.json;
     exports com.astier.bts.client_tcp_prof.tcp;
     opens com.astier.bts.client_tcp_prof.tcp to javafx.fxml;
+    exports com.astier.bts.client_tcp_prof.model;
+    opens com.astier.bts.client_tcp_prof.model to javafx.fxml;
 }
