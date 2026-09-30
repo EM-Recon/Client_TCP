@@ -6,9 +6,9 @@
 <?import javafx.scene.shape.*?>
 <?import javafx.scene.text.*?>
 
-<AnchorPane id="AnchorPane" prefHeight="480.0" prefWidth="580.0" xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.astier.bts.client_tcp_prof.HelloController">
+<AnchorPane id="AnchorPane" prefHeight="480.0" prefWidth="580.0" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.astier.bts.client_tcp_prof.HelloController">
     <children>
-        <Button fx:id="button" defaultButton="true" layoutX="488.0" layoutY="320.0"  text="Envoyer" AnchorPane.leftAnchor="510.0">
+        <Button fx:id="button" defaultButton="true" layoutX="488.0" layoutY="320.0" text="Envoyer" AnchorPane.leftAnchor="510.0">
             <font>
                 <Font size="11.0" />
             </font>
@@ -51,7 +51,7 @@
                 <Font name="Consolas Bold" size="11.0" />
             </font>
         </TextArea>
-        <Button fx:id="connecter" layoutX="510.0" layoutY="434.0"  text="On" textAlignment="CENTER" AnchorPane.rightAnchor="10.0">
+        <Button fx:id="connecter" layoutX="510.0" layoutY="434.0" text="On" textAlignment="CENTER" AnchorPane.rightAnchor="10.0">
             <font>
                 <Font size="11.0" />
             </font>
@@ -62,5 +62,6 @@
             </font>
         </Button>
         <Circle fx:id="voyant" fill="RED" layoutX="535.0" layoutY="405.0" radius="17.0" stroke="BLACK" strokeType="INSIDE" AnchorPane.rightAnchor="28.0" />
+      <ChoiceBox fx:id="choice" layoutX="227.0" layoutY="434.0" prefWidth="150.0" />
     </children>
 </AnchorPane>

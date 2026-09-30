@@ -3,9 +3,11 @@ package com.astier.bts.client_tcp_prof;
 import com.astier.bts.client_tcp_prof.aes.Aes_cbc;
 import com.astier.bts.client_tcp_prof.aes.Outils;
 import com.astier.bts.client_tcp_prof.aes.Record;
+import com.astier.bts.client_tcp_prof.model.Ipv4;
 import com.astier.bts.client_tcp_prof.tcp.TCPBin;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.shape.Circle;
@@ -16,6 +18,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.ResourceBundle;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,6 +34,7 @@ public class HelloController implements Initializable {
     public TextField TextFieldRequette;
     public Circle voyant;
     public TextArea TextAreaReponses;
+    public ChoiceBox choice;
 
     private TCPBin tcp;
     private boolean enRun = false;
@@ -44,6 +48,14 @@ public class HelloController implements Initializable {
         button.setOnAction(e -> envoyer());
         deconnecter.setOnAction(e -> deconnecter());
         connecter.setOnAction(e -> connecter());
+        try {
+            ArrayList<Ipv4> interfaces = ScanInterfaces.getSystemIP();
+            interfaces.forEach(ipv4 -> {
+                choice.getItems().add(ipv4.nomInterfaceName()+ " (" + ipv4.ip() + " )");
+            });
+        } catch (Exception e){
+            TextAreaReponses.appendText(("Erreur"));
+        }
     }
 
     private void chargerConfig() {
