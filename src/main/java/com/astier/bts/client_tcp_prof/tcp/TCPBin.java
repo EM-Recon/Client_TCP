@@ -39,37 +39,45 @@ public class TCPBin extends Thread {
             out = new DataOutputStream(socket.getOutputStream());
             in = socket.getInputStream();
             marche = true;
-            System.out.println("Connexion ok");
+            System.out.println("Connexion TCP OK vers " + serveur + ":" + port);
             return true;
         } catch (IOException e) {
-            System.out.println("Erreur de connexion");
+            System.err.println("Erreur de connexion TCP vers " + serveur + ":" + port + " -> " + e.getMessage());
             return false;
         }
     }
 
     public void deconnection() throws IOException {
         marche = false;
+        if (out != null) {
+            out.close();
+        }
+        if (in != null) {
+            in.close();
+        }
         if (socket != null && !socket.isClosed()) {
             socket.close();
         }
     }
 
-    /** Chiffre le texte en AES-CBC puis l'envoie. */
     public void requette(String message) throws IOException {
+        if (message == null) {
+            throw new IOException("Message null");
+        }
         byte[] chiffre = aes.cryptage(message.getBytes(StandardCharsets.UTF_8));
         if (chiffre == null) {
-            throw new IOException("Échec du chiffrement");
+            throw new IOException("Échec du chiffrement AES");
         }
         requette(chiffre);
     }
 
-    /** Envoi brut (déjà chiffré). */
     public void requette(byte[] data) throws IOException {
-        if (out != null) {
-            out.write(data);
-            out.flush();
-            System.out.println("Requête binaire envoyée (" + data.length + " octets)");
+        if (out == null || socket == null || socket.isClosed()) {
+            throw new IOException("Socket TCP non prête");
         }
+        out.write(data);
+        out.flush();
+        System.out.println("[TCP] Données envoyées : " + data.length + " octets");
     }
 
     @Override
@@ -77,34 +85,57 @@ public class TCPBin extends Thread {
         byte[] buffer = new byte[65535];
         while (marche) {
             try {
-                ByteArrayOutputStream recu = new ByteArrayOutputStream();
+                if (in == null || socket == null || socket.isClosed()) {
+                    marche = false;
+                    break;
+                }
 
-                int lus = in.read(buffer); // bloque jusqu'à la première donnée
+                int lus = in.read(buffer);
                 if (lus == -1) {
                     marche = false;
                     break;
                 }
+
+                ByteArrayOutputStream recu = new ByteArrayOutputStream();
                 recu.write(buffer, 0, lus);
 
-                // courte fenêtre pour récupérer la suite des données
-                Thread.sleep(50);
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
+
                 while (in.available() > 0) {
-                    lus = in.read(buffer, 0, Math.min(buffer.length, in.available()));
-                    if (lus == -1) break;
-                    recu.write(buffer, 0, lus);
+                    int dispo = Math.min(buffer.length, in.available());
+                    int l = in.read(buffer, 0, dispo);
+                    if (l == -1) {
+                        break;
+                    }
+                    recu.write(buffer, 0, l);
                 }
 
                 updateMessage(recu.toByteArray());
-            } catch (Exception e) {
-                if (marche) System.out.println("Déconnexion ou erreur de lecture");
+
+            } catch (IOException e) {
+                if (marche) {
+                    System.err.println("[TCP] Déconnexion ou erreur de lecture : " + e.getMessage());
+                }
                 marche = false;
             }
         }
-        Platform.runLater(fxmlCont::serveurDeconnecte);
+
+        Platform.runLater(() -> {
+            if (fxmlCont != null) {
+                fxmlCont.serveurDeconnecte();
+            }
+        });
     }
 
-
     protected void updateMessage(byte[] data) {
+        if (data == null || data.length == 0) {
+            return;
+        }
+
         StringBuilder sb = new StringBuilder();
         int debut = 0;
 
@@ -113,20 +144,21 @@ public class TCPBin extends Thread {
             int fin = -1;
 
             for (int e = debut + 16; e <= data.length; e += 16) {
-                byte[] essai = aes.decryptage(Arrays.copyOfRange(data, debut, e));
-                if (essai != null && estTexte(essai)) {
-                    clair = essai;
+                byte[] essai = Arrays.copyOfRange(data, debut, e);
+                byte[] tmp = aes.decryptage(essai);
+                if (tmp != null && estTexte(tmp)) {
+                    clair = tmp;
                     fin = e;
                     break;
                 }
             }
 
-            if (clair == null) { // reste non déchiffrable : affichage en hexadécimal
+            if (clair == null) {
                 StringBuilder hex = new StringBuilder();
                 for (int i = debut; i < data.length; i++) {
                     hex.append(String.format("%02X ", data[i]));
                 }
-                sb.append("SERVEUR (non déchiffrable) > ").append(hex).append("\n");
+                sb.append("SERVEUR > ").append(hex).append("\n");
                 break;
             }
 
@@ -135,15 +167,26 @@ public class TCPBin extends Thread {
         }
 
         String affichage = sb.toString();
-        Platform.runLater(() -> fxmlCont.TextAreaReponses.appendText(affichage));
+        Platform.runLater(() -> {
+            if (fxmlCont != null && fxmlCont.TextAreaReponses != null) {
+                fxmlCont.TextAreaReponses.appendText(affichage);
+            }
+        });
     }
 
-
     private boolean estTexte(byte[] b) {
+        if (b == null || b.length == 0) {
+            return false;
+        }
+
         String s = new String(b, StandardCharsets.UTF_8);
         for (char c : s.toCharArray()) {
-            if (c == '\uFFFD') return false;
-            if (c < 32 && c != '\n' && c != '\r' && c != '\t') return false;
+            if (c == '\ufffd') {
+                return false;
+            }
+            if (c < 32 && c != '\n' && c != '\r' && c != '\t') {
+                return false;
+            }
         }
         return true;
     }
