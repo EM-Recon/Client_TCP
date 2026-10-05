@@ -24,9 +24,8 @@ public class MulticastDiff {
     }
 
     /**
-     * Lance la découverte du serveur via multicast
-     * @return Connexion contenant l'IP et les ports du serveur
-     * @throws IOException Si erreur réseau
+     * Lance la découverte du serveur via multicast.
+     * La réponse attendue du serveur doit être au format : IP;PORT_TCP;PORT_UDP
      */
     public Connexion discover() throws IOException {
         NetworkInterface ni = NetworkInterface.getByName(nomInterface);
@@ -44,14 +43,12 @@ public class MulticastDiff {
             ms.joinGroup(groupe);
             dsReponse.setSoTimeout(TIMEOUT_MS);
 
-            // Envoyer la requête multicast
             byte[] data = "Tu es qui?".getBytes(StandardCharsets.UTF_8);
             DatagramPacket demande = new DatagramPacket(data, data.length, groupe, PORT_MULTICAST);
             ms.send(demande);
 
             System.out.println("[Multicast] Requête envoyée sur " + nomInterface);
 
-            // Recevoir la réponse
             byte[] buffer = new byte[256];
             DatagramPacket reponse = new DatagramPacket(buffer, buffer.length);
 
@@ -66,9 +63,8 @@ public class MulticastDiff {
             System.out.println("[Multicast] Réponse reçue : " + message);
 
             String[] parts = message.split(";");
-
             if (parts.length < 3) {
-                System.out.println("[Multicast] Format de réponse invalide");
+                System.out.println("[Multicast] Format de réponse invalide : " + message);
                 return null;
             }
 
