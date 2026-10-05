@@ -51,20 +51,20 @@ public class HelloController implements Initializable {
         button.setOnAction(e -> envoyer());
         deconnecter.setOnAction(e -> deconnecter());
         connecter.setOnAction(e -> connecter());
-        
+
         try {
             interfaces = ScanInterfaces.getSystemIP();
             interfaces.forEach(ipv4 -> {
-                choice.getItems().add(ipv4.nomInterfaceName()+ " (" + ipv4.ip() + " )");
+                choice.getItems().add(ipv4.nomInterfaceName() + " (" + ipv4.ip() + " )");
             });
-            
-            // Ajouter un listener sur le ChoiceBox pour découvrir le serveur automatiquement
+
             choice.getSelectionModel().selectedIndexProperty().addListener((obs, oldVal, newVal) -> {
                 if (newVal != null && newVal.intValue() >= 0) {
                     decouvreServeur(newVal.intValue());
                 }
             });
-        } catch (Exception e){
+
+        } catch (Exception e) {
             TextAreaReponses.appendText("Erreur lors du scan des interfaces\n");
         }
     }
@@ -75,7 +75,6 @@ public class HelloController implements Initializable {
             String json = Files.readString(chemin, StandardCharsets.UTF_8);
 
             Record conf = new Record(lireChamp(json, "motDePasse"), lireChamp(json, "iv"));
-            // Clé et IV construits une seule fois
             aes = new Aes_cbc(conf.getMDPAsByte(), conf.getIVAssByte());
             TextAreaReponses.appendText("Config AES chargée\n");
         } catch (Exception e) {
@@ -86,7 +85,8 @@ public class HelloController implements Initializable {
     }
 
     private String lireChamp(String json, String cle) {
-        Matcher m = Pattern.compile("\"" + cle + "\"\\s*:\\s*\"([^\"]*)\"").matcher(json);
+        Matcher m = Pattern.compile("\"" + cle + "\"\\s*:\\s*\"([^\"]*)\"")
+                .matcher(json);
         if (!m.find()) {
             throw new IllegalArgumentException("Champ absent dans le JSON : " + cle);
         }
@@ -94,8 +94,7 @@ public class HelloController implements Initializable {
     }
 
     /**
-     * Découvre le serveur via multicast et remplit automatiquement les champs IP et Port
-     * @param indexInterface Index de l'interface sélectionnée
+     * Découvre le serveur via multicast quand une interface est sélectionnée
      */
     private void decouvreServeur(int indexInterface) {
         if (indexInterface < 0 || indexInterface >= interfaces.size()) {
@@ -104,38 +103,35 @@ public class HelloController implements Initializable {
         }
 
         Ipv4 interfaceSelectionnee = interfaces.get(indexInterface);
-        TextAreaReponses.appendText("Découverte du serveur sur " + interfaceSelectionnee.nomInterfaceName() + "...\n");
+        TextAreaReponses.appendText("Découverte du serveur sur " 
+                + interfaceSelectionnee.nomInterfaceName() + "...\n");
 
-        // Lancer la découverte dans un thread séparé pour ne pas bloquer l'UI
+        // Lancer la découverte dans un thread séparé
         new Thread(() -> {
             try {
-                // Créer une instance de MulticastDiff avec l'interface sélectionnée
                 MulticastDiff multicastDiff = new MulticastDiff(interfaceSelectionnee.nomInterfaceName());
-                
-                // Lancer la découverte (bloquant avec timeout de 5 secondes)
                 Connexion connexion = multicastDiff.discover();
-                
+
                 if (connexion != null) {
                     // Mettre à jour l'UI depuis le thread JavaFX
                     javafx.application.Platform.runLater(() -> {
                         TextFieldIP.setText(connexion.addressAsString());
                         TextFieldPort.setText(String.valueOf(connexion.portTCP()));
-                        TextAreaReponses.appendText("✓ Serveur trouvé : " + connexion.addressAsString() 
-                                + " TCP:" + connexion.portTCP() + " UDP:" + connexion.portUDP() + "\n");
-                        
+                        TextAreaReponses.appendText("✓ Serveur trouvé : "
+                                + connexion.addressAsString()
+                                + " TCP:" + connexion.portTCP()
+                                + " UDP:" + connexion.portUDP() + "\n");
                         // Connexion automatique
                         connecter();
                     });
                 } else {
-                    javafx.application.Platform.runLater(() -> {
-                        TextAreaReponses.appendText("✗ Aucun serveur trouvé sur cette interface\n");
-                    });
+                    javafx.application.Platform.runLater(() ->
+                            TextAreaReponses.appendText("✗ Aucun serveur trouvé sur cette interface\n"));
                 }
             } catch (Exception e) {
-                javafx.application.Platform.runLater(() -> {
-                    TextAreaReponses.appendText("✗ Erreur lors de la découverte : " 
-                            + Outils.DiagnosticException.afficheException(e) + "\n");
-                });
+                javafx.application.Platform.runLater(() ->
+                        TextAreaReponses.appendText("✗ Erreur lors de la découverte : "
+                                + Outils.DiagnosticException.afficheException(e) + "\n"));
             }
         }).start();
     }
@@ -155,7 +151,7 @@ public class HelloController implements Initializable {
             return;
         }
         try {
-            tcp.requette(requette); // chiffrée dans TCPBin
+            tcp.requette(requette);
         } catch (Exception e) {
             TextAreaReponses.appendText(Outils.DiagnosticException.afficheException(e) + "\n");
         }
@@ -195,13 +191,16 @@ public class HelloController implements Initializable {
 
         String adresse = TextFieldIP.getText();
         String port = TextFieldPort.getText();
+
         if (port.isEmpty() || adresse.isEmpty()) {
             TextAreaReponses.appendText("Erreur Connection\n");
             return;
         }
+
         try {
             InetAddress addr = InetAddress.getByName(adresse);
             tcp = new TCPBin(addr, Integer.parseInt(port), this, aes);
+
             if (tcp.connection()) {
                 tcp.start();
                 enRun = true;

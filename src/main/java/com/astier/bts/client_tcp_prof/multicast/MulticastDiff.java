@@ -1,70 +1,91 @@
 package com.astier.bts.client_tcp_prof.multicast;
-import com.astier.bts.client_tcp_prof.aes.Outils;
+
 import com.astier.bts.client_tcp_prof.model.Connexion;
 
 import java.io.IOException;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.MulticastSocket;
+import java.net.NetworkInterface;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 
 public class MulticastDiff {
-    private final String MON_INTERFACE = "ethernet_32768";
-    private final String GROUPE_MULTICAST = "239.255.0.1"; // Groupe multicast valide
-    private InetAddress ip;
-    private byte [] data = "Tu es qui?".getBytes(StandardCharsets.UTF_8);
-    private int port = 5555;
-    private int portReponse = 5556;
-    private byte ttl = 60;
-    private byte [] bufferReponse = new byte[27];
-    private DatagramPacket dp;
-    private MulticastSocket ms;
-    private DatagramSocket dsReponse;
+    private static final String GROUPE_MULTICAST = "239.255.0.1";
+    private static final int PORT_MULTICAST = 5555;
+    private static final int PORT_REPONSE = 5556;
+    private static final int TIMEOUT_MS = 5000;
 
+    private final String nomInterface;
 
-    public MulticastDiff() throws IOException {
-        // Initialiser l'adresse IP du groupe multicast
-        ip = InetAddress.getByName(GROUPE_MULTICAST);
-        
-        // Créer le MulticastSocket avec le port
-        ms = new MulticastSocket(port);
-        
-        // Configurer l'interface réseau
-        NetworkInterface ni = NetworkInterface.getByName(MON_INTERFACE);
-        ms.setNetworkInterface(ni);
-        
-        // Rejoindre le groupe multicast
-        ms.joinGroup(ip);
-        
-        // Configurer le TTL
-        ms.setTimeToLive(ttl);
-        
-        // Créer et envoyer le paquet
-        dp = new DatagramPacket(data, data.length, ip, port);
-        dsReponse = new DatagramSocket(portReponse);
-        ms.send(dp);
+    public MulticastDiff(String nomInterface) {
+        this.nomInterface = nomInterface;
+    }
 
-        new Thread(() -> {
-            dp = new DatagramPacket(bufferReponse, bufferReponse.length);
-            System.out.println("Attente de réponse...");
+    /**
+     * Lance la découverte du serveur via multicast
+     * @return Connexion contenant l'IP et les ports du serveur
+     * @throws IOException Si erreur réseau
+     */
+    public Connexion discover() throws IOException {
+        NetworkInterface ni = NetworkInterface.getByName(nomInterface);
+        if (ni == null) {
+            throw new IOException("Interface réseau introuvable : " + nomInterface);
+        }
+
+        InetAddress groupe = InetAddress.getByName(GROUPE_MULTICAST);
+
+        try (MulticastSocket ms = new MulticastSocket(PORT_MULTICAST);
+             DatagramSocket dsReponse = new DatagramSocket(PORT_REPONSE)) {
+
+            ms.setNetworkInterface(ni);
+            ms.setTimeToLive((byte) 60);
+            ms.joinGroup(groupe);
+            dsReponse.setSoTimeout(TIMEOUT_MS);
+
+            // Envoyer la requête multicast
+            byte[] data = "Tu es qui?".getBytes(StandardCharsets.UTF_8);
+            DatagramPacket demande = new DatagramPacket(data, data.length, groupe, PORT_MULTICAST);
+            ms.send(demande);
+
+            System.out.println("[Multicast] Requête envoyée sur " + nomInterface);
+
+            // Recevoir la réponse
+            byte[] buffer = new byte[256];
+            DatagramPacket reponse = new DatagramPacket(buffer, buffer.length);
+
             try {
-                dsReponse.receive(dp);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+                dsReponse.receive(reponse);
+            } catch (SocketTimeoutException e) {
+                System.out.println("[Multicast] Timeout : aucune réponse du serveur");
+                return null;
             }
 
-            String reponseServeur = new String(dp.getData(),0,dp.getLength());
-            String[] reponseSplitted = reponseServeur.split(";");
-            try {
-                Connexion connexion = new Connexion(
-                        InetAddress.getByName(reponseSplitted[0]),
-                        Integer.parseInt(reponseSplitted[1]),
-                        Integer.parseInt(reponseSplitted[2])
-                );
-            } catch (UnknownHostException e){
-                System.err.println(Outils.DiagnosticException.afficheException(e));
+            String message = new String(reponse.getData(), 0, reponse.getLength(), StandardCharsets.UTF_8);
+            System.out.println("[Multicast] Réponse reçue : " + message);
+
+            String[] parts = message.split(";");
+
+            if (parts.length < 3) {
+                System.out.println("[Multicast] Format de réponse invalide");
+                return null;
             }
 
-            System.out.println("Reponse : " + new String(bufferReponse));
-        }).start();
-
+            try {
+                InetAddress ipServeur = InetAddress.getByName(parts[0].trim());
+                int portTCP = Integer.parseInt(parts[1].trim());
+                int portUDP = Integer.parseInt(parts[2].trim());
+                return new Connexion(ipServeur, portTCP, portUDP);
+            } catch (Exception e) {
+                System.err.println("[Multicast] Erreur parsing réponse : " + e.getMessage());
+                return null;
+            } finally {
+                try {
+                    ms.leaveGroup(groupe);
+                } catch (IOException ignored) {
+                }
+            }
+        }
     }
 }
