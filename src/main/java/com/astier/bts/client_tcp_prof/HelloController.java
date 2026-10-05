@@ -3,6 +3,7 @@ package com.astier.bts.client_tcp_prof;
 import com.astier.bts.client_tcp_prof.aes.Aes_cbc;
 import com.astier.bts.client_tcp_prof.aes.Outils;
 import com.astier.bts.client_tcp_prof.aes.Record;
+import com.astier.bts.client_tcp_prof.model.Connexion;
 import com.astier.bts.client_tcp_prof.model.Ipv4;
 import com.astier.bts.client_tcp_prof.multicast.MulticastDiff;
 import com.astier.bts.client_tcp_prof.tcp.TCPBin;
@@ -50,6 +51,7 @@ public class HelloController implements Initializable {
         button.setOnAction(e -> envoyer());
         deconnecter.setOnAction(e -> deconnecter());
         connecter.setOnAction(e -> connecter());
+        
         try {
             interfaces = ScanInterfaces.getSystemIP();
             interfaces.forEach(ipv4 -> {
@@ -63,7 +65,7 @@ public class HelloController implements Initializable {
                 }
             });
         } catch (Exception e){
-            TextAreaReponses.appendText(("Erreur lors du scan des interfaces\n"));
+            TextAreaReponses.appendText("Erreur lors du scan des interfaces\n");
         }
     }
 
@@ -82,7 +84,6 @@ public class HelloController implements Initializable {
                     + Outils.DiagnosticException.afficheException(e) + "\n");
         }
     }
-
 
     private String lireChamp(String json, String cle) {
         Matcher m = Pattern.compile("\"" + cle + "\"\\s*:\\s*\"([^\"]*)\"").matcher(json);
@@ -109,29 +110,30 @@ public class HelloController implements Initializable {
         new Thread(() -> {
             try {
                 // Créer une instance de MulticastDiff avec l'interface sélectionnée
-                MulticastDiffWrapper wrapper = new MulticastDiffWrapper(interfaceSelectionnee.nomInterfaceName());
+                MulticastDiff multicastDiff = new MulticastDiff(interfaceSelectionnee.nomInterfaceName());
                 
-                // Attendre la réponse (timeout de 5 secondes)
-                Thread.sleep(5000);
+                // Lancer la découverte (bloquant avec timeout de 5 secondes)
+                Connexion connexion = multicastDiff.discover();
                 
-                if (wrapper.getIpServeur() != null && wrapper.getPortServeur() > 0) {
+                if (connexion != null) {
                     // Mettre à jour l'UI depuis le thread JavaFX
                     javafx.application.Platform.runLater(() -> {
-                        TextFieldIP.setText(wrapper.getIpServeur());
-                        TextFieldPort.setText(String.valueOf(wrapper.getPortServeur()));
-                        TextAreaReponses.appendText("Serveur trouvé : " + wrapper.getIpServeur() + ":" + wrapper.getPortServeur() + "\n");
+                        TextFieldIP.setText(connexion.addressAsString());
+                        TextFieldPort.setText(String.valueOf(connexion.portTCP()));
+                        TextAreaReponses.appendText("✓ Serveur trouvé : " + connexion.addressAsString() 
+                                + " TCP:" + connexion.portTCP() + " UDP:" + connexion.portUDP() + "\n");
                         
                         // Connexion automatique
                         connecter();
                     });
                 } else {
                     javafx.application.Platform.runLater(() -> {
-                        TextAreaReponses.appendText("Aucun serveur trouvé sur cette interface\n");
+                        TextAreaReponses.appendText("✗ Aucun serveur trouvé sur cette interface\n");
                     });
                 }
             } catch (Exception e) {
                 javafx.application.Platform.runLater(() -> {
-                    TextAreaReponses.appendText("Erreur lors de la découverte : " 
+                    TextAreaReponses.appendText("✗ Erreur lors de la découverte : " 
                             + Outils.DiagnosticException.afficheException(e) + "\n");
                 });
             }
@@ -170,7 +172,6 @@ public class HelloController implements Initializable {
         serveurDeconnecte();
     }
 
-
     public void serveurDeconnecte() {
         if (enRun) {
             enRun = false;
@@ -178,7 +179,6 @@ public class HelloController implements Initializable {
             TextAreaReponses.appendText("Déconnecté\n");
         }
     }
-
 
     public void fermerConnexion() throws IOException {
         if (tcp != null && enRun) {
@@ -206,33 +206,12 @@ public class HelloController implements Initializable {
                 tcp.start();
                 enRun = true;
                 voyant.setFill(GREEN);
+                TextAreaReponses.appendText("✓ Connecté au serveur\n");
             } else {
                 TextAreaReponses.appendText("Connexion impossible\n");
             }
         } catch (Exception e) {
             TextAreaReponses.appendText(Outils.DiagnosticException.afficheException(e) + "\n");
-        }
-    }
-
-    /**
-     * Classe wrapper pour récupérer les données de MulticastDiff
-     */
-    private static class MulticastDiffWrapper {
-        private String ipServeur;
-        private int portServeur;
-
-        public MulticastDiffWrapper(String nomInterface) throws IOException {
-            // À adapter en fonction de comment MulticastDiff retourne les données
-            // Pour l'instant, on crée une instance mais il faudra modifier MulticastDiff
-            // pour que les données soient accessibles
-        }
-
-        public String getIpServeur() {
-            return ipServeur;
-        }
-
-        public int getPortServeur() {
-            return portServeur;
         }
     }
 }
