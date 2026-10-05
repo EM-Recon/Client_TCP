@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 
 public class MulticastDiff {
     private final String MON_INTERFACE = "ethernet_32768";
+    private final String GROUPE_MULTICAST = "239.255.0.1"; // Groupe multicast valide
     private InetAddress ip;
     private byte [] data = "Tu es qui?".getBytes(StandardCharsets.UTF_8);
     private int port = 5555;
@@ -20,17 +21,30 @@ public class MulticastDiff {
 
 
     public MulticastDiff() throws IOException {
-        ms = new MulticastSocket();
+        // Initialiser l'adresse IP du groupe multicast
+        ip = InetAddress.getByName(GROUPE_MULTICAST);
+        
+        // Créer le MulticastSocket avec le port
+        ms = new MulticastSocket(port);
+        
+        // Configurer l'interface réseau
         NetworkInterface ni = NetworkInterface.getByName(MON_INTERFACE);
         ms.setNetworkInterface(ni);
+        
+        // Rejoindre le groupe multicast
+        ms.joinGroup(ip);
+        
+        // Configurer le TTL
         ms.setTimeToLive(ttl);
+        
+        // Créer et envoyer le paquet
         dp = new DatagramPacket(data, data.length, ip, port);
         dsReponse = new DatagramSocket(portReponse);
         ms.send(dp);
 
         new Thread(() -> {
             dp = new DatagramPacket(bufferReponse, bufferReponse.length);
-            System.out.println("Attente");
+            System.out.println("Attente de réponse...");
             try {
                 dsReponse.receive(dp);
             } catch (IOException e) {
