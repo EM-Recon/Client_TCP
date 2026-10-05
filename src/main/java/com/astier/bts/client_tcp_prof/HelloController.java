@@ -36,7 +36,7 @@ public class HelloController implements Initializable {
     public TextField TextFieldRequette;
     public Circle voyant;
     public TextArea TextAreaReponses;
-    public ChoiceBox choice;
+    public ChoiceBox<String> choice;
 
     private TCPBin tcp;
     private boolean enRun = false;
@@ -45,27 +45,28 @@ public class HelloController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        voyant.setFill(RED);
+        if (voyant != null) voyant.setFill(RED);
         chargerConfig();
 
-        button.setOnAction(e -> envoyer());
-        deconnecter.setOnAction(e -> deconnecter());
-        connecter.setOnAction(e -> connecter());
+        if (button != null) button.setOnAction(e -> envoyer());
+        if (deconnecter != null) deconnecter.setOnAction(e -> deconnecter());
+        if (connecter != null) connecter.setOnAction(e -> connecter());
 
         try {
             interfaces = ScanInterfaces.getSystemIP();
-            interfaces.forEach(ipv4 -> {
-                choice.getItems().add(ipv4.nomInterfaceName() + " (" + ipv4.ip() + " )");
-            });
+            if (choice != null) {
+                interfaces.forEach(ipv4 -> 
+                    choice.getItems().add(ipv4.nomInterfaceName() + " (" + ipv4.ip() + " )")
+                );
 
-            choice.getSelectionModel().selectedIndexProperty().addListener((obs, oldVal, newVal) -> {
-                if (newVal != null && newVal.intValue() >= 0) {
-                    decouvreServeur(newVal.intValue());
-                }
-            });
-
+                choice.getSelectionModel().selectedIndexProperty().addListener((obs, oldVal, newVal) -> {
+                    if (newVal != null && newVal.intValue() >= 0) {
+                        decouvreServeur(newVal.intValue());
+                    }
+                });
+            }
         } catch (Exception e) {
-            TextAreaReponses.appendText("Erreur lors du scan des interfaces\n");
+            log("Erreur lors du scan des interfaces");
         }
     }
 
@@ -76,70 +77,61 @@ public class HelloController implements Initializable {
 
             Record conf = new Record(lireChamp(json, "motDePasse"), lireChamp(json, "iv"));
             aes = new Aes_cbc(conf.getMDPAsByte(), conf.getIVAssByte());
-            TextAreaReponses.appendText("Config AES chargée\n");
+            log("Config AES chargée");
         } catch (Exception e) {
-            e.printStackTrace();
-            TextAreaReponses.appendText("Erreur config : "
-                    + Outils.DiagnosticException.afficheException(e) + "\n");
+            log("Erreur config: " + Outils.DiagnosticException.afficheException(e));
         }
     }
 
     private String lireChamp(String json, String cle) {
-        Matcher m = Pattern.compile("\"" + cle + "\"\\s*:\\s*\"([^\"]*)\"")
-                .matcher(json);
+        Matcher m = Pattern.compile("\"" + cle + "\"\\s*:\\s*\"([^\"]*)\"").matcher(json);
         if (!m.find()) {
-            throw new IllegalArgumentException("Champ absent dans le JSON : " + cle);
+            throw new IllegalArgumentException("Champ absent dans le JSON: " + cle);
         }
         return m.group(1);
     }
 
-    /**
-     * Découvre le serveur via multicast quand une interface est sélectionnée
-     */
     private void decouvreServeur(int indexInterface) {
         if (indexInterface < 0 || indexInterface >= interfaces.size()) {
-            TextAreaReponses.appendText("Interface invalide\n");
+            log("Interface invalide");
             return;
         }
 
         Ipv4 interfaceSelectionnee = interfaces.get(indexInterface);
-        TextAreaReponses.appendText("Découverte du serveur sur " 
-                + interfaceSelectionnee.nomInterfaceName() + "...\n");
+        log("Découverte du serveur sur " + interfaceSelectionnee.nomInterfaceName() + "...");
 
-        // Lancer la découverte dans un thread séparé
+        // Thread séparé pour ne pas bloquer l'UI
         new Thread(() -> {
             try {
                 MulticastDiff multicastDiff = new MulticastDiff(interfaceSelectionnee.nomInterfaceName());
                 Connexion connexion = multicastDiff.discover();
 
                 if (connexion != null) {
-                    // Mettre à jour l'UI depuis le thread JavaFX
+                    // Exécuter sur le thread JavaFX
                     javafx.application.Platform.runLater(() -> {
-                        TextFieldIP.setText(connexion.addressAsString());
-                        TextFieldPort.setText(String.valueOf(connexion.portTCP()));
-                        TextAreaReponses.appendText("✓ Serveur trouvé : "
-                                + connexion.addressAsString()
-                                + " TCP:" + connexion.portTCP()
-                                + " UDP:" + connexion.portUDP() + "\n");
-                        // Connexion automatique
+                        if (TextFieldIP != null) TextFieldIP.setText(connexion.addressAsString());
+                        if (TextFieldPort != null) TextFieldPort.setText(String.valueOf(connexion.portTCP()));
+                        log("✓ Serveur trouvé: " + connexion.addressAsString() + " TCP:" + connexion.portTCP());
                         connecter();
                     });
                 } else {
-                    javafx.application.Platform.runLater(() ->
-                            TextAreaReponses.appendText("✗ Aucun serveur trouvé sur cette interface\n"));
+                    javafx.application.Platform.runLater(() -> 
+                        log("✗ Aucun serveur trouvé")
+                    );
                 }
             } catch (Exception e) {
                 javafx.application.Platform.runLater(() ->
-                        TextAreaReponses.appendText("✗ Erreur lors de la découverte : "
-                                + Outils.DiagnosticException.afficheException(e) + "\n"));
+                    log("✗ Erreur: " + e.getMessage())
+                );
             }
         }).start();
     }
 
     private void envoyer() {
+        if (TextFieldRequette == null) return;
         String requette = TextFieldRequette.getText();
-        if (requette.isEmpty()) {
-            TextAreaReponses.appendText("Requete vide\n");
+        if (requette == null || requette.isEmpty()) {
+            log("Requete vide");
             return;
         }
         if (requette.equalsIgnoreCase("exit")) {
@@ -147,13 +139,14 @@ public class HelloController implements Initializable {
             return;
         }
         if (!enRun || tcp == null) {
-            TextAreaReponses.appendText("Non connecté\n");
+            log("Non connecté");
             return;
         }
         try {
             tcp.requette(requette);
+            TextFieldRequette.clear();
         } catch (Exception e) {
-            TextAreaReponses.appendText(Outils.DiagnosticException.afficheException(e) + "\n");
+            log("Erreur envoi: " + e.getMessage());
         }
     }
 
@@ -163,7 +156,7 @@ public class HelloController implements Initializable {
                 tcp.deconnection();
             }
         } catch (Exception e) {
-            TextAreaReponses.appendText(Outils.DiagnosticException.afficheException(e) + "\n");
+            log("Erreur déconnexion: " + e.getMessage());
         }
         serveurDeconnecte();
     }
@@ -171,8 +164,8 @@ public class HelloController implements Initializable {
     public void serveurDeconnecte() {
         if (enRun) {
             enRun = false;
-            voyant.setFill(RED);
-            TextAreaReponses.appendText("Déconnecté\n");
+            if (voyant != null) voyant.setFill(RED);
+            log("Déconnecté");
         }
     }
 
@@ -184,16 +177,17 @@ public class HelloController implements Initializable {
 
     private void connecter() {
         if (aes == null) {
-            TextAreaReponses.appendText("Config AES absente\n");
+            log("Config AES absente");
             return;
         }
         if (enRun) return;
+        if (TextFieldIP == null || TextFieldPort == null) return;
 
         String adresse = TextFieldIP.getText();
         String port = TextFieldPort.getText();
 
-        if (port.isEmpty() || adresse.isEmpty()) {
-            TextAreaReponses.appendText("Erreur Connection\n");
+        if (adresse == null || adresse.isEmpty() || port == null || port.isEmpty()) {
+            log("Erreur Connection - champs vides");
             return;
         }
 
@@ -204,13 +198,22 @@ public class HelloController implements Initializable {
             if (tcp.connection()) {
                 tcp.start();
                 enRun = true;
-                voyant.setFill(GREEN);
-                TextAreaReponses.appendText("✓ Connecté au serveur\n");
+                if (voyant != null) voyant.setFill(GREEN);
+                log("✓ Connecté au serveur");
             } else {
-                TextAreaReponses.appendText("Connexion impossible\n");
+                log("Connexion impossible");
             }
         } catch (Exception e) {
-            TextAreaReponses.appendText(Outils.DiagnosticException.afficheException(e) + "\n");
+            log("Erreur connexion: " + e.getMessage());
+        }
+    }
+
+    private void log(String message) {
+        if (TextAreaReponses != null) {
+            TextAreaReponses.appendText(message + "\n");
+            System.out.println("[UI] " + message);
+        } else {
+            System.out.println(message);
         }
     }
 }
