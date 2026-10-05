@@ -4,6 +4,7 @@ import com.astier.bts.client_tcp_prof.aes.Aes_cbc;
 import com.astier.bts.client_tcp_prof.aes.Outils;
 import com.astier.bts.client_tcp_prof.aes.Record;
 import com.astier.bts.client_tcp_prof.model.Ipv4;
+import com.astier.bts.client_tcp_prof.multicast.MulticastDiff;
 import com.astier.bts.client_tcp_prof.tcp.TCPBin;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
@@ -39,6 +40,7 @@ public class HelloController implements Initializable {
     private TCPBin tcp;
     private boolean enRun = false;
     private Aes_cbc aes;
+    private ArrayList<Ipv4> interfaces;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -49,12 +51,19 @@ public class HelloController implements Initializable {
         deconnecter.setOnAction(e -> deconnecter());
         connecter.setOnAction(e -> connecter());
         try {
-            ArrayList<Ipv4> interfaces = ScanInterfaces.getSystemIP();
+            interfaces = ScanInterfaces.getSystemIP();
             interfaces.forEach(ipv4 -> {
                 choice.getItems().add(ipv4.nomInterfaceName()+ " (" + ipv4.ip() + " )");
             });
+            
+            // Ajouter un listener sur le ChoiceBox pour découvrir le serveur automatiquement
+            choice.getSelectionModel().selectedIndexProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal != null && newVal.intValue() >= 0) {
+                    decouvreServeur(newVal.intValue());
+                }
+            });
         } catch (Exception e){
-            TextAreaReponses.appendText(("Erreur"));
+            TextAreaReponses.appendText(("Erreur lors du scan des interfaces\n"));
         }
     }
 
@@ -81,6 +90,52 @@ public class HelloController implements Initializable {
             throw new IllegalArgumentException("Champ absent dans le JSON : " + cle);
         }
         return m.group(1);
+    }
+
+    /**
+     * Découvre le serveur via multicast et remplit automatiquement les champs IP et Port
+     * @param indexInterface Index de l'interface sélectionnée
+     */
+    private void decouvreServeur(int indexInterface) {
+        if (indexInterface < 0 || indexInterface >= interfaces.size()) {
+            TextAreaReponses.appendText("Interface invalide\n");
+            return;
+        }
+
+        Ipv4 interfaceSelectionnee = interfaces.get(indexInterface);
+        TextAreaReponses.appendText("Découverte du serveur sur " + interfaceSelectionnee.nomInterfaceName() + "...\n");
+
+        // Lancer la découverte dans un thread séparé pour ne pas bloquer l'UI
+        new Thread(() -> {
+            try {
+                // Créer une instance de MulticastDiff avec l'interface sélectionnée
+                MulticastDiffWrapper wrapper = new MulticastDiffWrapper(interfaceSelectionnee.nomInterfaceName());
+                
+                // Attendre la réponse (timeout de 5 secondes)
+                Thread.sleep(5000);
+                
+                if (wrapper.getIpServeur() != null && wrapper.getPortServeur() > 0) {
+                    // Mettre à jour l'UI depuis le thread JavaFX
+                    javafx.application.Platform.runLater(() -> {
+                        TextFieldIP.setText(wrapper.getIpServeur());
+                        TextFieldPort.setText(String.valueOf(wrapper.getPortServeur()));
+                        TextAreaReponses.appendText("Serveur trouvé : " + wrapper.getIpServeur() + ":" + wrapper.getPortServeur() + "\n");
+                        
+                        // Connexion automatique
+                        connecter();
+                    });
+                } else {
+                    javafx.application.Platform.runLater(() -> {
+                        TextAreaReponses.appendText("Aucun serveur trouvé sur cette interface\n");
+                    });
+                }
+            } catch (Exception e) {
+                javafx.application.Platform.runLater(() -> {
+                    TextAreaReponses.appendText("Erreur lors de la découverte : " 
+                            + Outils.DiagnosticException.afficheException(e) + "\n");
+                });
+            }
+        }).start();
     }
 
     private void envoyer() {
@@ -156,6 +211,28 @@ public class HelloController implements Initializable {
             }
         } catch (Exception e) {
             TextAreaReponses.appendText(Outils.DiagnosticException.afficheException(e) + "\n");
+        }
+    }
+
+    /**
+     * Classe wrapper pour récupérer les données de MulticastDiff
+     */
+    private static class MulticastDiffWrapper {
+        private String ipServeur;
+        private int portServeur;
+
+        public MulticastDiffWrapper(String nomInterface) throws IOException {
+            // À adapter en fonction de comment MulticastDiff retourne les données
+            // Pour l'instant, on crée une instance mais il faudra modifier MulticastDiff
+            // pour que les données soient accessibles
+        }
+
+        public String getIpServeur() {
+            return ipServeur;
+        }
+
+        public int getPortServeur() {
+            return portServeur;
         }
     }
 }
