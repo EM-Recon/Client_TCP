@@ -4,7 +4,6 @@ import com.astier.bts.client_tcp_prof.HelloController;
 import com.astier.bts.client_tcp_prof.aes.Aes_cbc;
 import javafx.application.Platform;
 
-import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,35 +38,28 @@ public class TCPBin extends Thread {
             out = new DataOutputStream(socket.getOutputStream());
             in = socket.getInputStream();
             marche = true;
-            System.out.println("Connexion TCP OK vers " + serveur + ":" + port);
+            log("✓ Connexion TCP établie vers " + serveur.getHostAddress() + ":" + port);
             return true;
         } catch (IOException e) {
-            System.err.println("Erreur de connexion TCP vers " + serveur + ":" + port + " -> " + e.getMessage());
+            log("✗ Erreur connexion TCP : " + e.getMessage());
             return false;
         }
     }
 
     public void deconnection() throws IOException {
         marche = false;
-        if (out != null) {
-            out.close();
-        }
-        if (in != null) {
-            in.close();
-        }
-        if (socket != null && !socket.isClosed()) {
-            socket.close();
-        }
+        if (out != null) out.close();
+        if (in != null) in.close();
+        if (socket != null && !socket.isClosed()) socket.close();
+        log("Déconnexion TCP effectuée");
     }
 
     public void requette(String message) throws IOException {
-        if (message == null) {
-            throw new IOException("Message null");
-        }
+        if (message == null) throw new IOException("Message null");
+        
         byte[] chiffre = aes.cryptage(message.getBytes(StandardCharsets.UTF_8));
-        if (chiffre == null) {
-            throw new IOException("Échec du chiffrement AES");
-        }
+        if (chiffre == null) throw new IOException("Échec du chiffrement AES");
+        
         requette(chiffre);
     }
 
@@ -77,53 +69,55 @@ public class TCPBin extends Thread {
         }
         out.write(data);
         out.flush();
-        System.out.println("[TCP] Données envoyées : " + data.length + " octets");
+        log("[CLIENT] Envoyé " + data.length + " octets (chiffrés)");
     }
 
     @Override
     public void run() {
+        log("[TCP] Boucle de réception démarrée");
+        
         byte[] buffer = new byte[65535];
+        
         while (marche) {
             try {
                 if (in == null || socket == null || socket.isClosed()) {
+                    log("[TCP] Socket fermée, arrêt de la lecture");
                     marche = false;
                     break;
                 }
 
                 int lus = in.read(buffer);
                 if (lus == -1) {
+                    log("[TCP] Fin de flux (connexion fermée par serveur)");
                     marche = false;
                     break;
                 }
 
-                ByteArrayOutputStream recu = new ByteArrayOutputStream();
-                recu.write(buffer, 0, lus);
-
-                try {
-                    Thread.sleep(50);
-                } catch (InterruptedException ignored) {
-                    Thread.currentThread().interrupt();
+                log("[TCP] " + lus + " octets reçus");
+                
+                // Afficher les données brutes en hex
+                StringBuilder hex = new StringBuilder();
+                for (int i = 0; i < Math.min(lus, 32); i++) {
+                    hex.append(String.format("%02X ", buffer[i]));
                 }
+                log("[RAW HEX] " + hex + (lus > 32 ? "..." : ""));
 
-                while (in.available() > 0) {
-                    int dispo = Math.min(buffer.length, in.available());
-                    int l = in.read(buffer, 0, dispo);
-                    if (l == -1) {
-                        break;
-                    }
-                    recu.write(buffer, 0, l);
-                }
-
-                updateMessage(recu.toByteArray());
+                // Essayer de déchiffrer
+                byte[] data = Arrays.copyOf(buffer, lus);
+                updateMessage(data);
 
             } catch (IOException e) {
                 if (marche) {
-                    System.err.println("[TCP] Déconnexion ou erreur de lecture : " + e.getMessage());
+                    log("[TCP] Erreur : " + e.getMessage());
                 }
+                marche = false;
+            } catch (Exception e) {
+                log("[TCP] Exception : " + e.getClass().getSimpleName() + " - " + e.getMessage());
                 marche = false;
             }
         }
 
+        log("[TCP] Fin de la boucle de réception");
         Platform.runLater(() -> {
             if (fxmlCont != null) {
                 fxmlCont.serveurDeconnecte();
@@ -133,8 +127,11 @@ public class TCPBin extends Thread {
 
     protected void updateMessage(byte[] data) {
         if (data == null || data.length == 0) {
+            log("[PARSE] Données vides");
             return;
         }
+
+        log("[PARSE] Tentative de déchiffrement de " + data.length + " octets");
 
         StringBuilder sb = new StringBuilder();
         int debut = 0;
@@ -143,22 +140,29 @@ public class TCPBin extends Thread {
             byte[] clair = null;
             int fin = -1;
 
+            // Essayer les longueurs de 16 octets
             for (int e = debut + 16; e <= data.length; e += 16) {
                 byte[] essai = Arrays.copyOfRange(data, debut, e);
                 byte[] tmp = aes.decryptage(essai);
+                
                 if (tmp != null && estTexte(tmp)) {
                     clair = tmp;
                     fin = e;
+                    log("[DECRYPT] ✓ Bloc déchiffré (" + essai.length + " octets) -> " + new String(tmp, StandardCharsets.UTF_8));
                     break;
                 }
             }
 
             if (clair == null) {
+                log("[DECRYPT] ✗ Bloc non déchiffrable à partir de l'offset " + debut);
+                
+                // Afficher les données brutes
                 StringBuilder hex = new StringBuilder();
-                for (int i = debut; i < data.length; i++) {
-                    hex.append(String.format("%02X ", data[i]));
+                int afficher = Math.min(32, data.length - debut);
+                for (int i = 0; i < afficher; i++) {
+                    hex.append(String.format("%02X ", data[debut + i]));
                 }
-                sb.append("SERVEUR > ").append(hex).append("\n");
+                sb.append("SERVEUR (brut) > ").append(hex).append("\n");
                 break;
             }
 
@@ -175,19 +179,22 @@ public class TCPBin extends Thread {
     }
 
     private boolean estTexte(byte[] b) {
-        if (b == null || b.length == 0) {
-            return false;
-        }
+        if (b == null || b.length == 0) return false;
 
         String s = new String(b, StandardCharsets.UTF_8);
         for (char c : s.toCharArray()) {
-            if (c == '\ufffd') {
-                return false;
-            }
-            if (c < 32 && c != '\n' && c != '\r' && c != '\t') {
-                return false;
-            }
+            if (c == '\ufffd') return false;
+            if (c < 32 && c != '\n' && c != '\r' && c != '\t') return false;
         }
         return true;
+    }
+
+    private void log(String msg) {
+        System.out.println(msg);
+        Platform.runLater(() -> {
+            if (fxmlCont != null && fxmlCont.TextAreaReponses != null) {
+                fxmlCont.TextAreaReponses.appendText(msg + "\n");
+            }
+        });
     }
 }
